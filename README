@@ -1,5 +1,6 @@
 Disclaimer: NOT MY WORK! I am not responsible for any use of this.
 
-Source: http://technicdynamic.com/2012/08/python-backdoor-aes-encrypted-traffic/
+Source: http://www.technicdynamic.com/2017/05/20/python-socket-thru-proxy-using-socksipy/
 
-Old python RAT i found years ago while learning python. Original website still has a version that seems to have removed much of the RAT-like features from it to present a pure shell, but i still had the original version. Still works fine so why not share it?
+Old python RAT i found years ago while learning python. Still works fine so why not share it?
+Website date says 2017; but this really dates back to 2012.

